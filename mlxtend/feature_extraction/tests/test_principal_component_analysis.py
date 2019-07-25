@@ -4,6 +4,8 @@
 #
 # License: BSD 3 clause
 
+import math
+
 import numpy as np
 from numpy.testing import assert_almost_equal
 from numpy.testing import assert_allclose
@@ -106,8 +108,8 @@ def test_fail_array_dimension_2():
 def test_variance_explained_ratio():
     pca = PCA()
     pca.fit(X_std)
-    assert np.sum(pca.e_vals_normalized_) == 1.
-    assert np.sum(pca.e_vals_normalized_ < 0.) == 0
+    assert math.isclose(np.sum(pca.e_vals_normalized_), 1.)
+    assert math.isclose(np.sum(pca.e_vals_normalized_ < 0.), 0, abs_tol=1e-10)
 
 
 def test_pca_on_uncentered_data():

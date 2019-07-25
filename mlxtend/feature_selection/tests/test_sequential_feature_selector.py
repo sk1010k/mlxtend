@@ -88,7 +88,7 @@ def test_kfeatures_type_1():
     X = iris.data
     y = iris.target
     knn = KNeighborsClassifier()
-    expect = ('k_features must be a positive integer between 1 and X.shape[1],'
+    expect = ('k_features must be a positive integer between 1 and X.shape[feature_axis],'
               ' got 0')
     sfs = SFS(estimator=knn,
               verbose=0,
@@ -121,7 +121,7 @@ def test_kfeatures_type_3():
     X = iris.data
     y = iris.target
     knn = KNeighborsClassifier()
-    expect = ('k_features tuple min value must be in range(1, X.shape[1]+1).')
+    expect = ('k_features tuple min value must be in range(1, X.shape[feature_axis]+1).')
     sfs = SFS(estimator=knn,
               verbose=0,
               k_features=(0, 5))
@@ -137,7 +137,7 @@ def test_kfeatures_type_4():
     X = iris.data
     y = iris.target
     knn = KNeighborsClassifier()
-    expect = ('k_features tuple max value must be in range(1, X.shape[1]+1).')
+    expect = ('k_features tuple max value must be in range(1, X.shape[feature_axis]+1).')
     sfs = SFS(estimator=knn,
               verbose=0,
               k_features=(1, 5))
