@@ -379,6 +379,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                         X=X_,
                         y=y,
                         groups=groups,
+                        feature_axis=feature_axis,
                         **fit_params
                     )
                 else:
@@ -388,6 +389,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                         X=X_,
                         y=y,
                         groups=groups,
+                        feature_axis=feature_axis,
                         **fit_params
                     )
 
@@ -415,6 +417,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                                 X=X_,
                                 y=y,
                                 groups=groups,
+                                feature_axis=feature_axis,
                                 **fit_params
                             )
 
@@ -425,6 +428,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                                 X=X_,
                                 y=y,
                                 groups=groups,
+                                feature_axis=feature_axis,
                                 **fit_params
                             )
 
@@ -522,7 +526,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
         return self
 
     def _inclusion(self, orig_set, subset, X, y, ignore_feature=None,
-                   groups=None, **fit_params):
+                   groups=None, feature_axis=1, **fit_params):
         all_avg_scores = []
         all_cv_scores = []
         all_subsets = []
@@ -536,7 +540,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
             work = parallel(delayed(_calc_score)
                             (self, X, y,
                              tuple(subset | {feature}),
-                             groups=groups, **fit_params)
+                             groups=groups, feature_axis=feature_axis, **fit_params)
                             for feature in remaining
                             if feature != ignore_feature)
 
@@ -552,7 +556,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
         return res
 
     def _exclusion(self, feature_set, X, y, fixed_feature=None,
-                   groups=None, **fit_params):
+                   groups=None, feature_axis=1, **fit_params):
         n = len(feature_set)
         res = (None, None, None)
         if n > 1:
@@ -564,7 +568,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
             parallel = Parallel(n_jobs=n_jobs, verbose=self.verbose,
                                 pre_dispatch=self.pre_dispatch)
             work = parallel(delayed(_calc_score)(self, X, y, p,
-                                                 groups=groups, **fit_params)
+                                                 groups=groups, feature_axis=feature_axis, **fit_params)
                             for p in combinations(feature_set, r=n - 1)
                             if not fixed_feature or fixed_feature in set(p))
 
