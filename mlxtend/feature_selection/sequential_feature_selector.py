@@ -23,10 +23,13 @@ from sklearn.model_selection import cross_val_score
 from joblib import Parallel, delayed
 
 
-def _calc_score(selector, X, y, indices, groups=None, **fit_params):
+def _calc_score(selector, X, y, indices, groups=None, feature_axis=1, **fit_params):
+    _X = X.swapaxes(0, feature_axis)
+    _X = _X[np.array(indices)]
+    _X = _X.swapaxes(0, feature_axis)
     if selector.cv:
         scores = cross_val_score(selector.est_,
-                                 X[:, indices], y,
+                                 _X, y,
                                  groups=groups,
                                  cv=selector.cv,
                                  scoring=selector.scorer,
@@ -34,8 +37,8 @@ def _calc_score(selector, X, y, indices, groups=None, **fit_params):
                                  pre_dispatch=selector.pre_dispatch,
                                  fit_params=fit_params)
     else:
-        selector.est_.fit(X[:, indices], y, **fit_params)
-        scores = np.array([selector.scorer(selector.est_, X[:, indices], y)])
+        selector.est_.fit(_X, y, **fit_params)
+        scores = np.array([selector.scorer(selector.est_, _X, y)])
     return indices, scores
 
 
@@ -243,7 +246,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
         self._set_params('estimator', 'named_estimators', **params)
         return self
 
-    def fit(self, X, y, custom_feature_names=None, groups=None, **fit_params):
+    def fit(self, X, y, custom_feature_names=None, groups=None, feature_axis=1, **fit_params):
         """Perform feature selection and learn model from training data.
 
         Parameters
@@ -287,7 +290,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
             X_ = X
 
         if (custom_feature_names is not None
-                and len(custom_feature_names) != X.shape[1]):
+                and len(custom_feature_names) != X.shape[feature_axis]):
             raise ValueError('If custom_feature_names is not None, '
                              'the number of elements in custom_feature_names '
                              'must equal the number of columns in X.')
@@ -299,9 +302,9 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                                  ', tuple, or string')
 
         if (isinstance(self.k_features, int) and (
-                self.k_features < 1 or self.k_features > X_.shape[1])):
+                self.k_features < 1 or self.k_features > X_.shape[feature_axis])):
             raise AttributeError('k_features must be a positive integer'
-                                 ' between 1 and X.shape[1], got %s'
+                                 ' between 1 and X.shape[feature_axis], got %s'
                                  % (self.k_features, ))
 
         if isinstance(self.k_features, tuple):
@@ -309,13 +312,13 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                 raise AttributeError('k_features tuple must consist of 2'
                                      ' elements a min and a max value.')
 
-            if self.k_features[0] not in range(1, X_.shape[1] + 1):
+            if self.k_features[0] not in range(1, X_.shape[feature_axis] + 1):
                 raise AttributeError('k_features tuple min value must be in'
-                                     ' range(1, X.shape[1]+1).')
+                                     ' range(1, X.shape[feature_axis]+1).')
 
-            if self.k_features[1] not in range(1, X_.shape[1] + 1):
+            if self.k_features[1] not in range(1, X_.shape[feature_axis] + 1):
                 raise AttributeError('k_features tuple max value must be in'
-                                     ' range(1, X.shape[1]+1).')
+                                     ' range(1, X.shape[feature_axis]+1).')
 
             if self.k_features[0] > self.k_features[1]:
                 raise AttributeError('The min k_features value must be smaller'
@@ -332,7 +335,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                                          'it must be "best" or "parsimonious"')
                 else:
                     min_k = 1
-                    max_k = X_.shape[1]
+                    max_k = X_.shape[feature_axis]
             else:
                 min_k = self.k_features[0]
                 max_k = self.k_features[1]
@@ -342,8 +345,8 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
             k_to_select = self.k_features
 
         self.subsets_ = {}
-        orig_set = set(range(X_.shape[1]))
-        n_features = X_.shape[1]
+        orig_set = set(range(X_.shape[feature_axis]))
+        n_features = X_.shape[feature_axis]
 
         if self.forward:
             if select_in_range:
@@ -353,10 +356,10 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
         else:
             if select_in_range:
                 k_to_select = min_k
-            k_idx = tuple(range(X_.shape[1]))
+            k_idx = tuple(range(X_.shape[feature_axis]))
             k = len(k_idx)
             k_idx, k_score = _calc_score(self, X_, y, k_idx,
-                                         groups=groups, **fit_params)
+                                         groups=groups, feature_axis=feature_axis, **fit_params)
             self.subsets_[k] = {
                 'feature_idx': k_idx,
                 'cv_scores': k_score,
@@ -487,8 +490,6 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
 
         if select_in_range:
             max_score = float('-inf')
-
-            max_score = float('-inf')
             for k in self.subsets_:
                 if k < min_k or k > max_k:
                     continue
@@ -579,7 +580,7 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
                    all_cv_scores[best])
         return res
 
-    def transform(self, X):
+    def transform(self, X, feature_axis=1):
         """Reduce X to its most important features.
 
         Parameters
@@ -600,9 +601,12 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
             X_ = X.values
         else:
             X_ = X
-        return X_[:, self.k_feature_idx_]
+        _X = X_.swapaxes(0, feature_axis)
+        _X = _X[np.array(self.k_feature_idx_)]
+        _X = _X.swapaxes(0, feature_axis)
+        return _X
 
-    def fit_transform(self, X, y, groups=None, **fit_params):
+    def fit_transform(self, X, y, groups=None, feature_axis=1, **fit_params):
         """Fit to training data then reduce X to its most important features.
 
         Parameters
@@ -627,8 +631,8 @@ class SequentialFeatureSelector(_BaseXComposition, MetaEstimatorMixin):
         Reduced feature subset of X, shape={n_samples, k_features}
 
         """
-        self.fit(X, y, groups=groups, **fit_params)
-        return self.transform(X)
+        self.fit(X, y, groups=groups, feature_axis=feature_axis, **fit_params)
+        return self.transform(X, feature_axis=feature_axis)
 
     def get_metric_dict(self, confidence_interval=0.95):
         """Return metric dictionary
